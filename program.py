@@ -1,0 +1,135 @@
+import os
+from db import DatabaseConnection
+from document_generator import DocumentGenerator
+from services import EmployeeService
+import configparser
+from datetime import datetime, date
+import calendar
+import argparse
+
+
+def load_program_config(config: configparser.ConfigParser):
+    source_dir = config.get("paths", "source_directory", fallback=".")
+    default_mode = config.get("defaults", "mode", fallback="manual")
+    default_interval = config.get("defaults", "interval", fallback="monthly")
+
+    return source_dir, default_mode, default_interval
+
+
+def choose_option(prompt, options):
+    print(prompt)
+    for i, option in enumerate(options, 1):
+        print(f"{i}. {option}")
+    while True:
+        try:
+            choice = int(input("Select an option by number: "))
+            if 1 <= choice <= len(options):
+                return options[choice - 1]
+            else:
+                print("Invalid choice. Try again.")
+        except ValueError:
+            print("Please enter a valid number.")
+
+
+def get_current_dates(interval: str):
+    today = date.today()
+    year = today.year
+    month = today.month
+
+    if interval == "monthly":
+        start = date(year, month, 1)
+        end = date(year, month, calendar.monthrange(year, month)[1])
+    elif interval == "quarterly":
+        q_start_month = 3 * ((month - 1) // 3) + 1
+        q_end_month = q_start_month + 2
+        start = date(year, q_start_month, 1)
+        end = date(year, q_end_month, calendar.monthrange(year, q_end_month)[1])
+    else:
+        raise ValueError("Unknown interval")
+
+    return start, end
+
+
+def manual_date_selection():
+    interval = choose_option("Choose time interval:", ["Monthly", "Quarterly"]).lower()
+
+    # Year input with default
+    current_year = datetime.now().year
+    year_input = input(f"Enter year (default: {current_year}): ").strip()
+    year = int(year_input) if year_input else current_year
+
+    if interval == "monthly":
+        months = list(calendar.month_name)[1:]  # ['January', ..., 'December']
+        selected_month = choose_option("Choose a month:", months)
+        month_index = months.index(selected_month) + 1
+        start = date(year, month_index, 1)
+        end = date(year, month_index, calendar.monthrange(year, month_index)[1])
+    else:  # quarterly
+        quarters = ["Q1 (Jan-Mar)", "Q2 (Apr-Jun)", "Q3 (Jul-Sep)", "Q4 (Oct-Dec)"]
+        q_choice = choose_option("Choose a quarter:", quarters)
+        quarter_index = quarters.index(q_choice) + 1
+        q_start_month = 3 * (quarter_index - 1) + 1
+        q_end_month = q_start_month + 2
+        start = date(year, q_start_month, 1)
+        end = date(year, q_end_month, calendar.monthrange(year, q_end_month)[1])
+
+    print(f"📅 Start date: {start}, End date: {end}")
+    return start, end
+
+
+def main():
+    parser = argparse.ArgumentParser()
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--config", default="./config/config.dev.ini", help="Path to config file"
+    )
+    parser.add_argument(
+        "--auto", action="store_true", help="Run in automatic (scheduled) mode"
+    )
+    parser.add_argument(
+        "--interval",
+        choices=["monthly", "quarterly"],
+        default="monthly",
+        help="Time interval (for --auto mode)",
+    )
+
+    args = parser.parse_args()
+    config = configparser.ConfigParser()
+    config.read(args.config)
+    source_dir, default_mode, default_interval = load_program_config(config)
+    if not os.path.exists(source_dir):
+        print(f"⚠️ Source directory does not exist: {source_dir}")
+        raise Exception(
+            "Source directory for files generation not found, check source_dir config"
+        )
+    print(f"Using source directory: {source_dir}")
+
+    if args.auto:
+        start_date, end_date = get_current_dates(args.interval)
+        print(f"[AUTO] Generating report from {start_date} to {end_date}")
+    else:
+        start_date, end_date = manual_date_selection()
+        print(f"[MANUAL] Generating report from {start_date} to {end_date}")
+
+    try:
+        with DatabaseConnection(config) as db:
+            db.connect()
+            employee_service = EmployeeService(db)
+            employees = employee_service.get_employees_by_period(
+                start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
+            )
+    except Exception as e:
+        print(f"Database error: {e}")
+    finally:
+        db.close()
+
+    generator = DocumentGenerator()
+    # Place your database/CSV processing + word generation logic here
+    # Example:
+    # generate_report(start_date, end_date)
+
+
+if __name__ == "__main__":
+    DEBUG = True
+    main()
