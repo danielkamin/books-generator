@@ -1,6 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 import sys
+import pandas as pd
 
 
 class DocumentGenerator:
@@ -24,12 +25,14 @@ class DocumentGenerator:
         final_csv_path="",
         output_csv_path="",
         firearms_csv_path="",
+        supervision_csv_path="",
     ):
         if (
             output_directory == ""
             or final_csv_path == ""
             or output_csv_path == ""
             or firearms_csv_path == ""
+            or supervision_csv_path == ""
             or start_date == ""
             or end_date == ""
             or interval == ""
@@ -49,110 +52,50 @@ class DocumentGenerator:
         else:
             self.quarter = quarter
             self.month = None
-        # self.final_df = self._load_csv(final_csv_path, "final.csv")
-        # self.employees_df = self._load_csv(output_csv_path, "output.csv")
-        # self.firearms_df = self._load_csv(firearms_csv_path, "test - Broń.csv")
+        self.final_df = self._load_csv(final_csv_path, "final.csv")
+        self.employees_df = self._load_csv(output_csv_path, "output.csv")
+        self.firearms_df = self._load_csv(firearms_csv_path, "test - Broń.csv")
+        self.supervision_data = self._load_csv(supervision_csv_path, "supervision.csv")
 
-        # # Convert date columns in employees_df
-        # if "startdate" in self.employees_df.columns:
-        #     self.employees_df["startdate"] = pd.to_datetime(
-        #         self.employees_df["startdate"], errors="coerce"
-        #     )
-        # if "enddate" in self.employees_df.columns:
-        #     self.employees_df["enddate"] = pd.to_datetime(
-        #         self.employees_df["enddate"], errors="coerce"
-        #     )
+        # Convert date columns in employees_df
+        if "startdate" in self.employees_df.columns:
+            self.employees_df["startdate"] = pd.to_datetime(
+                self.employees_df["startdate"], errors="coerce"
+            )
+        if "enddate" in self.employees_df.columns:
+            self.employees_df["enddate"] = pd.to_datetime(
+                self.employees_df["enddate"], errors="coerce"
+            )
 
-        # # Convert date columns in firearms_df
-        # if "Daty dotyczące przydziału broni palnej" in self.firearms_df.columns:
-        #     self.firearms_df["przydział"] = pd.to_datetime(
-        #         self.firearms_df["Daty dotyczące przydziału broni palnej"],
-        #         errors="coerce",
-        #     )
+        # Convert date columns in firearms_df
+        if "Daty dotyczące przydziału broni palnej" in self.firearms_df.columns:
+            self.firearms_df["przydział"] = pd.to_datetime(
+                self.firearms_df["Daty dotyczące przydziału broni palnej"],
+                errors="coerce",
+            )
 
-        # # Hardcoded supervision data (consider making this configurable or loaded from a file)
-        # self.supervision_data = pd.DataFrame(
-        #     {
-        #         "Nazwisko": [
-        #             "Kamiński",
-        #             "Kamiński",
-        #             "Chojnowska",
-        #             "Kołodziński",
-        #             "Walesiuk",
-        #             "Kamiński",
-        #             "Klimiuk",
-        #         ],
-        #         "Imię": [
-        #             "Marek",
-        #             "Marek",
-        #             "Małgorzata",
-        #             "Wojciech",
-        #             "Marek",
-        #             "Jakub",
-        #             "Piotr",
-        #         ],
-        #         "Nr legitymacji": [
-        #             "00010",
-        #             "00010",
-        #             "00000",
-        #             "00000",
-        #             "00107",
-        #             "00150",
-        #             "00366",
-        #         ],
-        #         "Funkcja w obiekcie": [
-        #             "Prezes Zarządu",
-        #             "Prezes Zarządu",
-        #             "Manager",
-        #             "Koordynator",
-        #             "Koordynator",
-        #             "Manager",
-        #             "Manager",
-        #         ],
-        #         "rozpoczęcie": [
-        #             "2016-01-01",
-        #             "2016-01-01",
-        #             "2016-03-01",
-        #             "2018-02-01",
-        #             "2020-03-01",
-        #             "2020-07-01",
-        #             "2022-05-01",
-        #         ],
-        #         "zakończenie": [
-        #             None,
-        #             None,
-        #             "2020-04-30",
-        #             "2020-05-04",
-        #             "2022-04-30",
-        #             None,
-        #             None,
-        #         ],
-        #         "Uwagi": [None, None, None, None, None, None, None],
-        #         "Dział": ["OFS", "MON", "OFS", "OFS", "OFS", "MON", "OFS"],
-        #     }
-        # )
-        # # Convert dates in supervision_data
-        # self.supervision_data["rozpoczęcie"] = pd.to_datetime(
-        #     self.supervision_data["rozpoczęcie"], errors="coerce"
-        # )
-        # self.supervision_data["zakończenie"] = pd.to_datetime(
-        #     self.supervision_data["zakończenie"], errors="coerce"
-        # )
+        # Convert dates in supervision_data
+        self.supervision_data["rozpoczęcie"] = pd.to_datetime(
+            self.supervision_data["rozpoczęcie"], errors="coerce"
+        )
+        self.supervision_data["zakończenie"] = pd.to_datetime(
+            self.supervision_data["zakończenie"], errors="coerce"
+        )
 
-    # def _load_csv(self, file_path, name):
-    #     """Helper to load CSV and handle errors."""
-    #     try:
-    #         df = pd.read_csv(file_path, encoding="utf-8")
-    #         self.debug_print(f"Successfully loaded {name} from {file_path}")
-    #         return df
-    #     except FileNotFoundError:
-    #         print(
-    #             f"Error: {name} not found at {file_path}. Please ensure the file exists."
-    #         )
-    #         return pd.DataFrame()  # Return empty DataFrame to avoid further errors
-    #     except Exception as e:
-    #         print(f"Error loading {name} from {file_path}: {e}")
-    #         return pd.DataFrame()
+    def _load_csv(self, file_path, name):
+        """Helper to load CSV and handle errors."""
+        try:
+            df = pd.read_csv(file_path, encoding="utf-8")
+            self.debug_print(f"Successfully loaded {name} from {file_path}")
+            return df
+        except FileNotFoundError:
+            print(
+                f"Error: {name} not found at {file_path}. Please ensure the file exists."
+            )
+            return pd.DataFrame()  # Return empty DataFrame to avoid further errors
+        except Exception as e:
+            print(f"Error loading {name} from {file_path}: {e}")
+            return pd.DataFrame()
 
     def debug_print(self, *args, **kwargs):
         """Wrapper for debug prints, using instance debug flag."""
@@ -751,9 +694,6 @@ class DocumentGenerator:
         else:
             self.debug_print(f"Folder '{year_path}' already exists.")
 
-        self.debug_print(self.interval)
-        self.debug_print(self.month)
-        self.debug_print(self.interval == "monthly")
         if self.interval == "monthly" and self.month != None:
             month_folder = year_path / f"{start_dt.month}"
             if not month_folder.exists():

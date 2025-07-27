@@ -1,4 +1,5 @@
 import os
+import sys
 from db import DatabaseConnection
 from document_generator import DocumentGenerator
 from services import EmployeeService
@@ -7,6 +8,15 @@ from datetime import datetime, date
 import calendar
 import argparse
 from pathlib import Path
+
+
+def resource_path(relative_path):
+    if hasattr(sys, "_MEIPASS"):
+        base_path = sys._MEIPASS  # type: ignore
+    else:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
 
 
 def load_program_config(config: configparser.ConfigParser):
@@ -86,7 +96,9 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--config", default="./config/config.dev.ini", help="Path to config file"
+        "--config",
+        default=resource_path("config/config.dev.ini"),
+        help="Path to config file",
     )
     parser.add_argument(
         "--auto", action="store_true", help="Run in automatic (scheduled) mode"
@@ -143,9 +155,10 @@ def main():
         interval,
         DEBUG,
         output_directory,
-        "./data/final.csv",
-        "./data/output.csv",
-        "./data/Broń.csv",
+        resource_path("data/final.csv"),
+        resource_path("data/output.csv"),
+        resource_path("data/Broń.csv"),
+        resource_path("data/supervision.csv"),
     )
     output_folder_full_path = generator.create_folder_structure()
     if isinstance(output_folder_full_path, Path) == False:
