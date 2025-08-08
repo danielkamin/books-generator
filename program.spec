@@ -5,7 +5,7 @@ a = Analysis(
     ['program.py'],
     pathex=[],
     binaries=[],
-    datas=[('config/config.dev.ini', 'config'), ('data/final.csv', 'data'), ('data/output.csv', 'data'), ('data/Broń.csv', 'data')],
+    datas=[],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

@@ -1,19 +1,11 @@
 from datetime import datetime
 from pathlib import Path
-from typing import List
-
-import pandas as pd
 from docx import Document
 from docx.shared import Inches, Pt
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-
-from models.employee import Employee
-from utils.utils import get_unique_file_path
-import logging
-
-logger = logging.getLogger(__name__)
+import pandas as pd
 
 
 class DocumentGenerator:
@@ -21,42 +13,34 @@ class DocumentGenerator:
 
     def __init__(
         self,
-        firearms_file_name: Path,
-        entities_file_name: Path,
-        supervision_file_name: Path,
-        month: str | None,
-        quarter: str | None,
-        start_date="",
-        end_date="",
-        interval="",
-        output_directory="",
-        employees: List[Employee] = [],
+        debug=False,
+        final_csv_path="./data/obiekty.csv",
+        output_csv_path="./data/output.csv",
+        firearms_csv_path="./data/bron.csv",
     ):
-        if (
-            output_directory == ""
-            or start_date == ""
-            or end_date == ""
-            or interval == ""
-            or employees == []
-        ):
-            raise Exception(
-                "Brakuje którejś ze ściezek do plików źródłowych lub wynikowych"
-            )
+        """
+        Initialize the DocumentGenerator.
 
-        self.output_directory = output_directory
-        self.start_date = start_date
-        self.end_date = end_date
-        self.interval = interval
-        self.employees = employees
-        if month is not None:
-            self.month = month
-            self.quarter = None
-        else:
-            self.quarter = quarter
-            self.month = None
-        self.final_df = self._load_csv(entities_file_name)
-        self.firearms_df = self._load_csv(firearms_file_name)
-        self.supervision_data = self._load_csv(supervision_file_name)
+        Args:
+            debug (bool): Enable debug output.
+            final_csv_path (str): Path to the main contract data CSV.
+            output_csv_path (str): Path to the employee data CSV.
+            firearms_csv_path (str): Path to the firearms data CSV.
+        """
+        self.debug = debug
+        self.final_df = self._load_csv(final_csv_path, "obiekty.csv")
+        self.employees_df = self._load_csv(output_csv_path, "output.csv")
+        self.firearms_df = self._load_csv(firearms_csv_path, "bron.csv")
+
+        # Convert date columns in employees_df
+        if "startdate" in self.employees_df.columns:
+            self.employees_df["startdate"] = pd.to_datetime(
+                self.employees_df["startdate"], errors="coerce"
+            )
+        if "enddate" in self.employees_df.columns:
+            self.employees_df["enddate"] = pd.to_datetime(
+                self.employees_df["enddate"], errors="coerce"
+            )
 
         # Convert date columns in firearms_df
         if "Daty dotyczące przydziału broni palnej" in self.firearms_df.columns:
@@ -65,6 +49,67 @@ class DocumentGenerator:
                 errors="coerce",
             )
 
+        # Hardcoded supervision data (consider making this configurable or loaded from a file)
+        self.supervision_data = pd.DataFrame(
+            {
+                "Nazwisko": [
+                    "Kamiński",
+                    "Kamiński",
+                    "Chojnowska",
+                    "Kołodziński",
+                    "Walesiuk",
+                    "Kamiński",
+                    "Klimiuk",
+                ],
+                "Imię": [
+                    "Marek",
+                    "Marek",
+                    "Małgorzata",
+                    "Wojciech",
+                    "Marek",
+                    "Jakub",
+                    "Piotr",
+                ],
+                "Nr legitymacji": [
+                    "00010",
+                    "00010",
+                    "00000",
+                    "00000",
+                    "00107",
+                    "00150",
+                    "00366",
+                ],
+                "Funkcja w obiekcie": [
+                    "Prezes Zarządu",
+                    "Prezes Zarządu",
+                    "Manager",
+                    "Koordynator",
+                    "Koordynator",
+                    "Manager",
+                    "Manager",
+                ],
+                "rozpoczęcie": [
+                    "2016-01-01",
+                    "2016-01-01",
+                    "2016-03-01",
+                    "2018-02-01",
+                    "2020-03-01",
+                    "2020-07-01",
+                    "2022-05-01",
+                ],
+                "zakończenie": [
+                    None,
+                    None,
+                    "2020-04-30",
+                    "2020-05-04",
+                    "2022-04-30",
+                    None,
+                    None,
+                ],
+                "Uwagi": [None, None, None, None, None, None, None],
+                "Dział": ["OFS", "MON", "OFS", "OFS", "OFS", "MON", "OFS"],
+            }
+        )
         # Convert dates in supervision_data
         self.supervision_data["rozpoczęcie"] = pd.to_datetime(
             self.supervision_data["rozpoczęcie"], errors="coerce"
@@ -73,18 +118,25 @@ class DocumentGenerator:
             self.supervision_data["zakończenie"], errors="coerce"
         )
 
-    def _load_csv(self, file_path):
+    def _load_csv(self, file_path, name):
         """Helper to load CSV and handle errors."""
         try:
             df = pd.read_csv(file_path, encoding="utf-8")
-            logger.info(f"Successfully loaded {file_path}")
+            self.debug_print(f"Successfully loaded {name} from {file_path}")
             return df
         except FileNotFoundError:
-            print(f"Error: {file_path} not found. Please ensure the file exists.")
+            print(
+                f"Error: {name} not found at {file_path}. Please ensure the file exists."
+            )
             return pd.DataFrame()  # Return empty DataFrame to avoid further errors
         except Exception as e:
-            print(f"Error loading {file_path}: {e}")
+            print(f"Error loading {name} from {file_path}: {e}")
             return pd.DataFrame()
+
+    def debug_print(self, *args, **kwargs):
+        """Wrapper for debug prints, using instance debug flag."""
+        if self.debug:
+            print(*args, **kwargs)
 
     def add_page_numbers(self, doc):
         """Dodaje numer strony w formacie '1 | Strona' z linią nad stopką."""
@@ -94,8 +146,10 @@ class DocumentGenerator:
             footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
         )
 
+        # Wyrównanie do lewej
         paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
 
+        # Dodaj linię górną w stopce
         p_pr = paragraph._element.get_or_add_pPr()
         p_borders = OxmlElement("w:pBdr")
         top = OxmlElement("w:top")
@@ -106,6 +160,7 @@ class DocumentGenerator:
         p_borders.append(top)
         p_pr.append(p_borders)
 
+        # Numer strony (jako pole Word)
         run = paragraph.add_run()
         run.font.bold = True
         run.font.size = Pt(10)
@@ -114,7 +169,7 @@ class DocumentGenerator:
         fldChar1.set(qn("w:fldCharType"), "begin")
 
         instrText = OxmlElement("w:instrText")  # polecenie
-        instrText.text = "PAGE"  # type: ignore
+        instrText.text = "PAGE"
 
         fldChar2 = OxmlElement("w:fldChar")  # separate field
         fldChar2.set(qn("w:fldCharType"), "separate")
@@ -127,35 +182,37 @@ class DocumentGenerator:
         run._r.append(fldChar2)
         run._r.append(fldChar3)
 
+        # Separator
         separator_run = paragraph.add_run(" | ")
         separator_run.bold = True
         separator_run.font.size = Pt(10)
 
+        # Tekst "Strona"
         text_run = paragraph.add_run("Strona")
         text_run.bold = False
         text_run.font.size = Pt(10)
 
-    # def get_quarter_dates(self, year, quarter):
-    #     """Calculate start and end dates for a given quarter."""
-    #     quarters = {
-    #         1: ("01-01", "03-31"),
-    #         2: ("04-01", "06-30"),
-    #         3: ("07-01", "09-30"),
-    #         4: ("10-01", "12-31"),
-    #     }
-    #     start_month_day, end_month_day = quarters[quarter]
+    def get_quarter_dates(self, year, quarter):
+        """Calculate start and end dates for a given quarter."""
+        quarters = {
+            1: ("01-01", "03-31"),
+            2: ("04-01", "06-30"),
+            3: ("07-01", "09-30"),
+            4: ("10-01", "12-31"),
+        }
+        start_month_day, end_month_day = quarters[quarter]
 
-    #     quarter_start = pd.to_datetime(f"{year}-{start_month_day}")
-    #     quarter_end = pd.to_datetime(f"{year}-{end_month_day}")
+        quarter_start = pd.to_datetime(f"{year}-{start_month_day}")
+        quarter_end = pd.to_datetime(f"{year}-{end_month_day}")
 
-    #     return quarter_start, quarter_end
+        return quarter_start, quarter_end
 
-    def create_document_content(
-        self, doc, start_date: str, end_date: str, department, current_row
-    ):
+    def create_document_content(self, doc, year, quarter, department, current_row):
+        """
+        Creates a .docx document section based on the provided data for a single contract.
+        """
         try:
-            year = datetime.strptime(self.end_date, "%Y-%m-%d").year
-            # quarter_start, quarter_end = self.get_quarter_dates(year, quarter)
+            quarter_start, quarter_end = self.get_quarter_dates(year, quarter)
             poz_ks = int(float(current_row["POZ KS R Umów"]))
 
             # Filter matching rows for Section V (Locations and Form)
@@ -187,12 +244,12 @@ class DocumentGenerator:
 
             # II. Start date
             para = doc.add_paragraph()
-            run = para.add_run(f"II. OD: {start_date}")
+            run = para.add_run(f"II. OD: {quarter_start.strftime('%Y-%m-%d')}")
             run.bold = True
 
             # III. End date
             para = doc.add_paragraph()
-            run = para.add_run(f"III. DO: {end_date}")
+            run = para.add_run(f"III. DO: {quarter_end.strftime('%Y-%m-%d')}")
             run.bold = True
 
             # IV. Volume (Dział-CK)
@@ -279,7 +336,14 @@ class DocumentGenerator:
 
             current_ck = str(current_row["CK"]).strip()
 
-            filtered_employees = [e for e in self.employees if e.ck == current_ck]
+            filtered_employees = self.employees_df[
+                (self.employees_df["department"].astype(str).str.strip() == current_ck)
+                & (self.employees_df["startdate"] <= quarter_end)
+                & (
+                    (self.employees_df["enddate"].isna())
+                    | (self.employees_df["enddate"] >= quarter_start)
+                )
+            ].copy()
 
             rows_needed = max(
                 2, len(filtered_employees) + 3
@@ -311,34 +375,63 @@ class DocumentGenerator:
                 contract_name = current_row[
                     "Oznaczenie strony lub stron umowy, z którymi przedsiębiorca zawarł umowę"
                 ]
-                logger.warning(
-                    f"\nWARNING: No employees found for contract: {contract_name} (CK: {current_ck}, {start_date} - {end_date})"
+                self.debug_print(
+                    f"\nWARNING: No employees found for contract: {contract_name} (CK: {current_ck}, Quarter: Q{quarter} {year})"
                 )
 
-            logger.info(
-                f"\nProcessing contract: {current_row['Oznaczenie strony lub stron umowy, z którymi przedsiębiorca zawarł umowę']}"
+            if self.debug:
+                self.debug_print(
+                    f"\nProcessing contract: {current_row['Oznaczenie strony lub stron umowy, z którymi przedsiębiorca zawarł umowę']}"
+                )
+                self.debug_print(f"CK value: {current_ck}")
+                self.debug_print(
+                    f"Date range: {quarter_start.strftime('%Y-%m-%d')} to {quarter_end.strftime('%Y-%m-%d')}"
+                )
+                self.debug_print(f"Found {len(filtered_employees)} matching employees")
+                if not filtered_employees.empty:
+                    self.debug_print("First few matching employees:")
+                    self.debug_print(
+                        filtered_employees[
+                            [
+                                "department",
+                                "firstname",
+                                "lastname",
+                                "startdate",
+                                "enddate",
+                            ]
+                        ].head()
+                    )
+
+            # Format akronim to 5 digits
+            filtered_employees["akronim"] = filtered_employees["akronim"].apply(
+                lambda x: str(int(x)).zfill(5) if pd.notna(x) else ""
             )
-            logger.info(f"CK value: {current_ck}")
-            logger.info(f"Date range: {start_date} to {end_date}")
-            logger.info(f"Found {len(filtered_employees)} matching employees")
-            if not len(filtered_employees) > 0:
-                logger.info("First few matching employees:")
-                logger.info(filtered_employees[:3])
 
             for idx in range(min(len(filtered_employees), rows_needed - 1)):
                 data_row = table.rows[idx + 1]
-                emp = filtered_employees[idx]
+                emp = filtered_employees.iloc[idx]
+
+                start_date_str = (
+                    emp["startdate"].strftime("%Y-%m-%d")
+                    if pd.notna(emp["startdate"])
+                    else ""
+                )
+                end_date_str = (
+                    emp["enddate"].strftime("%Y-%m-%d")
+                    if pd.notna(emp["enddate"])
+                    else ""
+                )
 
                 data_row.cells[0].text = f"{idx + 1}."
-                data_row.cells[1].text = str(emp.last_name)
-                data_row.cells[2].text = str(emp.first_name)
-                data_row.cells[3].text = str(emp.kod)
-                data_row.cells[4].text = str(emp.position)
-                data_row.cells[5].text = str(
-                    start_date
-                )  # zmiana kiedyś na koniec pracy pracownika ale odpowiednio trzeba zmienić query do bazy
-                data_row.cells[6].text = str(end_date)
-                data_row.cells[7].text = ""
+                data_row.cells[1].text = str(emp["lastname"])
+                data_row.cells[2].text = str(emp["firstname"])
+                data_row.cells[3].text = str(emp["akronim"])
+                data_row.cells[4].text = (
+                    str(emp["function"]) if pd.notna(emp["function"]) else ""
+                )
+                data_row.cells[5].text = start_date_str
+                data_row.cells[6].text = end_date_str
+                data_row.cells[7].text = ""  # Uwagi column should be empty
 
             for idx in range(
                 len(filtered_employees), rows_needed - 1
@@ -359,10 +452,10 @@ class DocumentGenerator:
                 self.supervision_data["Dział"] == department
             ].copy()
             filtered_data = dep_data[
-                (dep_data["rozpoczęcie"] <= pd.to_datetime(end_date))
+                (dep_data["rozpoczęcie"] <= quarter_end)
                 & (
                     (dep_data["zakończenie"].isna())
-                    | (dep_data["zakończenie"] >= pd.to_datetime(start_date))
+                    | (dep_data["zakończenie"] >= quarter_start)
                 )
             ]
 
@@ -397,16 +490,16 @@ class DocumentGenerator:
                 start_date_s = ""
                 if pd.notna(row_s["rozpoczęcie"]):
                     # Use the later of the quarter start or the actual start date
-                    start_date_s = max(
-                        row_s["rozpoczęcie"], pd.to_datetime(start_date)
-                    ).strftime("%Y-%m-%d")
+                    start_date_s = max(row_s["rozpoczęcie"], quarter_start).strftime(
+                        "%Y-%m-%d"
+                    )
 
                 end_date_s = ""
                 if pd.notna(row_s["zakończenie"]):
                     end_date_s = row_s["zakończenie"].strftime("%Y-%m-%d")
                 else:
                     # If no end date, use quarter end date
-                    end_date_s = end_date
+                    end_date_s = quarter_end.strftime("%Y-%m-%d")
 
                 data_row.cells[0].text = f"{idx + 1}."
                 data_row.cells[1].text = str(row_s["Nazwisko"])
@@ -480,8 +573,11 @@ class DocumentGenerator:
                     if pd.notna(row_f["przydział"]):
                         # If assignment date is before quarter start, use quarter start
                         assignment_date_f = max(
-                            row_f["przydział"], pd.to_datetime(start_date)
+                            row_f["przydział"], quarter_start
                         ).strftime("%Y-%m-%d")
+
+                    # For end date, use quarter end date
+                    end_date_f = quarter_end.strftime("%Y-%m-%d")
 
                     data_cells_firearms = [
                         "1",
@@ -511,7 +607,7 @@ class DocumentGenerator:
                             else ""
                         ),
                         assignment_date_f,
-                        end_date,
+                        end_date_f,
                         str(row_f["Uwagi"]) if pd.notna(row_f["Uwagi"]) else "",
                     ]
 
@@ -560,121 +656,107 @@ class DocumentGenerator:
             )
             raise
 
-    def generate_quarterly_reports(
-        self, output_path: Path, start_date: str, end_date: str
-    ):
+    def generate_quarterly_reports(self, base_output_path):
         """Generates quarterly documents with all records."""
         try:
+            current_year = datetime.now().year
 
-            doc = Document()
+            for year in range(2024, current_year):
+                for quarter in range(4, 5):
+                    quarter_folder = f"Q{quarter}"
+                    quarter_path = base_output_path / str(year) / quarter_folder
+                    quarter_path.mkdir(parents=True, exist_ok=True)
 
-            # Set document margins
-            for section in doc.sections:
-                section.left_margin = Inches(0.5)
-                section.right_margin = Inches(0.5)
-                section.top_margin = Inches(0.5)
-                section.bottom_margin = Inches(1)
+                    doc = Document()
 
-            # Add page numbers
-            self.add_page_numbers(doc)  # Correctly call as a method
+                    # Set document margins
+                    for section in doc.sections:
+                        section.left_margin = Inches(0.5)
+                        section.right_margin = Inches(0.5)
+                        section.top_margin = Inches(0.5)
+                        section.bottom_margin = Inches(1)
 
-            # Ensure 'POZ KS R Umów' and 'Dział' are treated consistently
-            filtered_contracts = self.final_df[
-                self.final_df["POZ KS R Umów"].notna()
-                & (self.final_df["POZ KS R Umów"].astype(str) != "")
-            ].copy()
+                    # Add page numbers
+                    self.add_page_numbers(doc)  # Correctly call as a method
 
-            for dept in ["MON", "OFS"]:
-                dept_rows = filtered_contracts[
-                    filtered_contracts["Dział"] == dept
-                ].copy()
+                    quarter_start, quarter_end = self.get_quarter_dates(year, quarter)
 
-                for idx, row in dept_rows.iterrows():
-                    contract_start_date = pd.to_datetime(
-                        row["Data rozpoczęcia usługi"], errors="coerce"
-                    )
-                    contract_end_date = pd.to_datetime(
-                        row["Data zakończenia usługi"], errors="coerce"
-                    )
+                    # Process all records for the quarter
+                    # Ensure 'POZ KS R Umów' and 'Dział' are treated consistently
+                    filtered_contracts = self.final_df[
+                        self.final_df["POZ KS R Umów"].notna()
+                        & (self.final_df["POZ KS R Umów"].astype(str) != "")
+                    ].copy()
 
-                    # Filter contracts based on their start and end dates relative to the quarter
-                    # A contract is relevant if it started by the end of the quarter AND (it has no end date OR it ends after the quarter started)
-                    is_active_in_quarter = (
-                        pd.notna(contract_start_date)
-                        and contract_start_date <= pd.to_datetime(end_date)
-                    ) and (
-                        pd.isna(contract_end_date)
-                        or contract_end_date >= pd.to_datetime(start_date)
-                    )
+                    for dept in ["MON", "OFS"]:
+                        dept_rows = filtered_contracts[
+                            filtered_contracts["Dział"] == dept
+                        ].copy()
+                        self.debug_print(
+                            f"Processing {dept} department for Q{quarter} {year} - Found {len(dept_rows)} records relevant to department."
+                        )
 
-                    if is_active_in_quarter:
-                        try:
-                            if (
-                                doc.paragraphs and len(doc.paragraphs) > 1
-                            ):  # Add page break only if there's existing content
-                                doc.add_page_break()
-
-                            self.create_document_content(
-                                doc, start_date, end_date, dept, row
+                        for idx, row in dept_rows.iterrows():
+                            contract_start_date = pd.to_datetime(
+                                row["Data rozpoczęcia usługi"], errors="coerce"
+                            )
+                            contract_end_date = pd.to_datetime(
+                                row["Data zakończenia usługi"], errors="coerce"
                             )
 
-                        except Exception as e:
-                            print(
-                                f"Error processing document for {dept} - POZ KS R Umów {row['POZ KS R Umów']}: {e}"
+                            # Filter contracts based on their start and end dates relative to the quarter
+                            # A contract is relevant if it started by the end of the quarter AND (it has no end date OR it ends after the quarter started)
+                            is_active_in_quarter = (
+                                pd.notna(contract_start_date)
+                                and contract_start_date <= quarter_end
+                            ) and (
+                                pd.isna(contract_end_date)
+                                or contract_end_date >= quarter_start
                             )
 
-            file_name = f"Raport_{self.start_date}_{self.end_date}.docx"
-            file_path = output_path / file_name
-            file_path = get_unique_file_path(file_path)
-            doc.save(str(file_path))
-            doc.save(str(file_path))
-            print(f"Created document: {file_path}")
+                            if is_active_in_quarter:
+                                try:
+                                    if (
+                                        doc.paragraphs and len(doc.paragraphs) > 1
+                                    ):  # Add page break only if there's existing content
+                                        doc.add_page_break()
+
+                                    self.create_document_content(
+                                        doc, year, quarter, dept, row
+                                    )
+
+                                except Exception as e:
+                                    print(
+                                        f"Error processing document for {dept} - POZ KS R Umów {row['POZ KS R Umów']}: {e}"
+                                    )
+
+                    file_name = f"Quarterly_Report_Q{quarter}_{year}.docx"
+                    file_path = quarter_path / file_name
+                    doc.save(file_path)
+                    print(f"Created quarterly document: {file_path}")
 
         except Exception as e:
             print(f"Error in document generation process: {e}")
 
-    def create_folder_structure(self):
-        output_path = Path(self.output_directory)
 
-        if output_path.exists() == False:
-            output_path.mkdir(parents=True, exist_ok=True)
-            return self.create_folder_structure()
+# Entry point for running the script directly
+def main():
+    try:
+        output_dir = Path.cwd() / "wyniki"
+        output_dir.mkdir(exist_ok=True)
+        print(
+            f"Output directory created/verified: {output_dir}"
+        )  # Changed debug_print to print for main flow
 
-        start_dt = datetime.strptime(self.start_date, "%Y-%m-%d")
-        end_dt = datetime.strptime(self.end_date, "%Y-%m-%d")
-        if start_dt.year != end_dt.year:
-            raise Exception("Year of start date and end date does not match")
+        # Instantiate with debug=True if you want verbose output
+        generator = DocumentGenerator(debug=True)
+        generator.generate_quarterly_reports(output_dir)
 
-        year_path = output_path / str(start_dt.year)
+        print("Process completed successfully!")
 
-        if not year_path.exists():
-            year_path.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Folder '{year_path}' created.")
-        else:
-            logger.info(f"Folder '{year_path}' already exists.")
+    except Exception as e:
+        print(f"Error in main execution: {e}")
 
-        if self.interval == "monthly" and self.month != None:
-            month_folder = year_path / f"{start_dt.month}"
-            if not month_folder.exists():
-                month_folder.mkdir()
-                logger.info(f"Folder '{month_folder}' created.")
-            else:
-                logger.info(f"Folder '{month_folder}' already exists.")
 
-            return month_folder
-
-        elif self.interval == "quarterly" and self.quarter != None:
-            quarter_folder = year_path / f"{self.quarter}"
-            if not quarter_folder.exists():
-                quarter_folder.mkdir()
-                logger.info(f"Folder '{quarter_folder}' created.")
-            else:
-                logger.info(f"Folder '{quarter_folder}' already exists.")
-
-            return quarter_folder
-
-        else:
-            logger.error("No valid interval (monthly/quarterly) or missing variable.")
-            raise Exception(
-                "No valid interval (monthly/quarterly) or missing variable."
-            )
+if __name__ == "__main__":
+    main()

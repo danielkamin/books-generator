@@ -41,6 +41,12 @@ Thumbs.db
 
 data/
 
+results
+release
+logs
+wyniki
 config.ini
 config.dev.ini
 config.prod.ini
+
+*.zip
