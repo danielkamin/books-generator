@@ -53,7 +53,7 @@ def find_config_file(debug: bool, config_dir: str):
     if debug == True:
         external = os.path.join(base_dir, "config", "config.dev.ini")
     else:
-        external = os.path.join(base_dir, "config", "config.prod.ini")
+        external = os.path.join(base_dir, "config", "config.ini")
 
     if os.path.exists(external):
         return external

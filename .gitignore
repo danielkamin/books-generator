@@ -47,6 +47,6 @@ logs
 wyniki
 config.ini
 config.dev.ini
-config.prod.ini
+config.ini
 
 *.zip
