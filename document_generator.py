@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class DocumentGenerator:
-    """Main class for generating quarterly security service reports."""
+    """Main class for generating kwartalny security service reports."""
 
     def __init__(
         self,
@@ -563,7 +563,7 @@ class DocumentGenerator:
     def generate_quarterly_reports(
         self, output_path: Path, start_date: str, end_date: str
     ):
-        """Generates quarterly documents with all records."""
+        """Generates kwartalny documents with all records."""
         try:
 
             doc = Document()
@@ -653,7 +653,7 @@ class DocumentGenerator:
         else:
             logger.info(f"Folder '{year_path}' already exists.")
 
-        if self.interval == "monthly" and self.month != None:
+        if self.interval == "miesieczny" and self.month != None:
             month_folder = year_path / f"{start_dt.month}"
             if not month_folder.exists():
                 month_folder.mkdir()
@@ -663,7 +663,7 @@ class DocumentGenerator:
 
             return month_folder
 
-        elif self.interval == "quarterly" and self.quarter != None:
+        elif self.interval == "kwartalny" and self.quarter != None:
             quarter_folder = year_path / f"{self.quarter}"
             if not quarter_folder.exists():
                 quarter_folder.mkdir()
@@ -674,7 +674,9 @@ class DocumentGenerator:
             return quarter_folder
 
         else:
-            logger.error("No valid interval (monthly/quarterly) or missing variable.")
+            logger.error(
+                "No valid interval (miesieczny/kwartalny) or missing variable."
+            )
             raise Exception(
-                "No valid interval (monthly/quarterly) or missing variable."
+                "No valid interval (miesieczny/kwartalny) or missing variable."
             )

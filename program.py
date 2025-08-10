@@ -94,7 +94,7 @@ def load_program_config(config: ConfigParser):
     )
 
     default_mode = config.get("defaults", "mode", fallback="manual")
-    default_interval = config.get("defaults", "interval", fallback="monthly")
+    default_interval = config.get("defaults", "interval", fallback="miesieczny")
 
     return (
         output_directory,
@@ -126,10 +126,10 @@ def get_current_dates(interval: str):
     year = today.year
     month = today.month
 
-    if interval == "monthly":
+    if interval == "miesieczny":
         start = date(year, month, 1)
         end = date(year, month, calendar.monthrange(year, month)[1])
-    elif interval == "quarterly":
+    elif interval == "kwartalny":
         q_start_month = 3 * ((month - 1) // 3) + 1
         q_end_month = q_start_month + 2
         start = date(year, q_start_month, 1)
@@ -141,7 +141,9 @@ def get_current_dates(interval: str):
 
 
 def manual_date_selection():
-    interval = choose_option("Choose time interval:", ["Monthly", "Quarterly"]).lower()
+    interval = choose_option(
+        "Wybierz interwał czasowy:", ["Miesieczny", "Kwartalny"]
+    ).lower()
 
     # Year input with default
     current_year = datetime.now().year
@@ -151,22 +153,22 @@ def manual_date_selection():
     q_choice = None
     selected_month = None
 
-    if interval == "monthly":
+    if interval == "miesieczny":
         months = list(calendar.month_name)[1:]  # ['January', ..., 'December']
         selected_month = choose_option("Choose a month:", months)
         month_index = months.index(selected_month) + 1
         start = date(year, month_index, 1)
         end = date(year, month_index, calendar.monthrange(year, month_index)[1])
-    else:  # quarterly
-        quarters = ["Q1", "Q2", "Q3", "Q4"]
-        q_choice = choose_option("Choose a quarter:", quarters)
+    else:  # kwartalny
+        quarters = ["Kw.1", "Kw.2", "Kw.3", "Kw.4"]
+        q_choice = choose_option("Wybierz kwartał:", quarters)
         quarter_index = quarters.index(q_choice) + 1
         q_start_month = 3 * (quarter_index - 1) + 1
         q_end_month = q_start_month + 2
         start = date(year, q_start_month, 1)
         end = date(year, q_end_month, calendar.monthrange(year, q_end_month)[1])
 
-    print(f"📅 Start date: {start}, End date: {end}")
+    print(f"📅 Data poczatku: {start}, data konca: {end}")
     return start, end, interval, selected_month, q_choice
 
 
@@ -193,8 +195,8 @@ def main():
     )
     parser.add_argument(
         "--interval",
-        choices=["monthly", "quarterly"],
-        default="monthly",
+        choices=["miesieczny", "kwartalny"],
+        default="miesieczny",
         help="Time interval (for --auto mode)",
     )
 

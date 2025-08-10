@@ -9,7 +9,7 @@ import pandas as pd
 
 
 class DocumentGenerator:
-    """Main class for generating quarterly security service reports."""
+    """Main class for generating kwartalny security service reports."""
 
     def __init__(
         self,
@@ -657,7 +657,7 @@ class DocumentGenerator:
             raise
 
     def generate_quarterly_reports(self, base_output_path):
-        """Generates quarterly documents with all records."""
+        """Generates kwartalny documents with all records."""
         try:
             current_year = datetime.now().year
 
@@ -733,7 +733,7 @@ class DocumentGenerator:
                     file_name = f"Quarterly_Report_Q{quarter}_{year}.docx"
                     file_path = quarter_path / file_name
                     doc.save(file_path)
-                    print(f"Created quarterly document: {file_path}")
+                    print(f"Created kwartalny document: {file_path}")
 
         except Exception as e:
             print(f"Error in document generation process: {e}")
