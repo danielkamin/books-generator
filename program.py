@@ -218,12 +218,12 @@ def main():
     logger = logging.getLogger(__name__)
     logger.info("Starting application")
 
-    if not os.path.exists(output_directory):
-        logger.error(f"⚠️ Output directory does not exist: {output_directory}")
-        raise Exception(
-            "Output directory for files generation not found, check output_directory config"
-        )
-    logger.info(f"Using output directory: {output_directory}")
+    # if not os.path.exists(output_directory):
+    #     logger.error(f"⚠️ Output directory does not exist: {output_directory}")
+    #     raise Exception(
+    #         "Output directory for files generation not found, check output_directory config"
+    #     )
+    # logger.info(f"Using output directory: {output_directory}")
 
     # init generator values
     start_date = ""
@@ -268,7 +268,6 @@ def main():
         start_date,
         end_date,
         interval,
-        output_directory,
         employees,
     )
 

@@ -1,7 +1,7 @@
 declare @data_od varchar(25); declare @data_do varchar(25);
 
-SET @data_od = '2025-01-01';
-SET @data_do = '2025-01-31';
+SET @data_od = '2025-02-01';
+SET @data_do = '2025-02-28';
 WITH ListaPracownikow AS
 (
 	SELECT  distinct(p.PRE_PraId)                                                       AS IdPracownika
@@ -9,6 +9,7 @@ WITH ListaPracownikow AS
 	       ,p.PRE_Kod                                                                   AS Kod
 	       ,CASE WHEN wyp.WPL_NumerPelny not LIKE 'U%' THEN 'etat'  ELSE 'zlecenie' END AS TypZatrudnienia
 	       ,wyp.WPL_NumerPelny
+	       ,p.PRE_ZatrudnionyDo AS KoniecZatrudnienia
 	FROM CDN.PracEtaty AS p
 	INNER JOIN CDN.Wyplaty AS wyp
 	ON wyp.WPL_PraId = p.PRE_PraId
@@ -27,6 +28,8 @@ SELECT  DISTINCT(lp.IdPracownika)
        ,lp.Pracownik
        ,lp.Kod
        ,dp.PRJ_Kod
+	   ,lp.KoniecZatrudnienia
+       ,CASE WHEN lp.KoniecZatrudnienia BETWEEN @data_od AND @data_do THEN 1 ELSE 0 END
 FROM ListaPracownikow lp
 INNER JOIN CDN.PracPlanDni pld
 ON pld.PPL_PraId = lp.IdPracownika

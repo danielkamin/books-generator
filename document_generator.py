@@ -29,21 +29,13 @@ class DocumentGenerator:
         start_date="",
         end_date="",
         interval="",
-        output_directory="",
         employees: List[Employee] = [],
     ):
-        if (
-            output_directory == ""
-            or start_date == ""
-            or end_date == ""
-            or interval == ""
-            or employees == []
-        ):
+        if start_date == "" or end_date == "" or interval == "" or employees == []:
             raise Exception(
                 "Brakuje którejś ze ściezek do plików źródłowych lub wynikowych"
             )
 
-        self.output_directory = output_directory
         self.start_date = start_date
         self.end_date = end_date
         self.interval = interval
@@ -334,10 +326,8 @@ class DocumentGenerator:
                 data_row.cells[2].text = str(emp.first_name)
                 data_row.cells[3].text = str(emp.kod)
                 data_row.cells[4].text = str(emp.position)
-                data_row.cells[5].text = str(
-                    start_date
-                )  # zmiana kiedyś na koniec pracy pracownika ale odpowiednio trzeba zmienić query do bazy
-                data_row.cells[6].text = str(end_date)
+                data_row.cells[5].text = str(start_date)
+                data_row.cells[6].text = str(emp.release_date)
                 data_row.cells[7].text = ""
 
             for idx in range(
@@ -405,8 +395,8 @@ class DocumentGenerator:
                 if pd.notna(row_s["zakończenie"]):
                     end_date_s = row_s["zakończenie"].strftime("%Y-%m-%d")
                 else:
-                    # If no end date, use quarter end date
-                    end_date_s = end_date
+                    # If no end date, use empty string because it didn't end
+                    end_date_s = ""
 
                 data_row.cells[0].text = f"{idx + 1}."
                 data_row.cells[1].text = str(row_s["Nazwisko"])
@@ -483,6 +473,13 @@ class DocumentGenerator:
                             row_f["przydział"], pd.to_datetime(start_date)
                         ).strftime("%Y-%m-%d")
 
+                    assignment_end_date_f = ""
+                    # fix csv file
+                    # if pd.notna(row_f["cofnięcie przydziału"]):
+                    #     assignment_date_f = max(
+                    #         row_f["cofnięcie przydziału"], pd.to_datetime(end_date)
+                    #     ).strftime("%Y-%m-%d")
+
                     data_cells_firearms = [
                         "1",
                         (
@@ -511,7 +508,7 @@ class DocumentGenerator:
                             else ""
                         ),
                         assignment_date_f,
-                        end_date,
+                        assignment_end_date_f,
                         str(row_f["Uwagi"]) if pd.notna(row_f["Uwagi"]) else "",
                     ]
 
@@ -634,7 +631,7 @@ class DocumentGenerator:
             print(f"Error in document generation process: {e}")
 
     def create_folder_structure(self):
-        output_path = Path(self.output_directory)
+        output_path = Path(__file__).parent.parent / "results"
 
         if output_path.exists() == False:
             output_path.mkdir(parents=True, exist_ok=True)

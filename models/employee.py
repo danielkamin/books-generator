@@ -26,6 +26,7 @@ class Employee:
         "OFSO_": "Pracownik Ochrony",
         "brak": "brak",
     }
+    _release_date = ""
 
     def __str__(self):
         return f"{self.name}, Kod: {self.kod}, Projekt: {self.project_code or '-'}, Funkcja: {self.position}"
@@ -50,6 +51,10 @@ class Employee:
     def last_name(self):
         return self.name.split(" ")[1]
 
+    @property
+    def release_date(self):
+        return self._release_date
+
     @project_code.setter
     def project_code(self, value: Optional[str]):
         if value and value != "brak" and value.startswith("P_"):
@@ -73,6 +78,10 @@ class Employee:
         else:
             self._ck = None
 
+    @release_date.setter
+    def release_date(self, release_date: str):
+        self._release_date = release_date
+
 
 class EmployeeFactory:
     """Factory class to create Employee objects from database results"""
@@ -84,6 +93,11 @@ class EmployeeFactory:
             emp.project_code = db_row[3]
             emp.position = emp.project_code
             emp.ck = emp.project_code
+        if len(db_row) > 5:
+            if db_row[5] == 1:
+                emp.release_date = str(db_row[4].date())
+            else:
+                emp.release_date = ""
         return emp
 
     @staticmethod

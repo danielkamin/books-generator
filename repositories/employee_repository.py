@@ -3,18 +3,20 @@ from typing import List, Tuple
 
 class EmployeeRepository:
     """Repository for employee-related database operations"""
-    
+
     def __init__(self, db_connection):
         self.db = db_connection
-    
-    def get_employees_with_project_codes(self, date_from: str, date_to: str) -> List[Tuple]:
+
+    def get_employees_with_project_codes(
+        self, date_from: str, date_to: str
+    ) -> List[Tuple]:
         """
         Get list of employees with their project codes for a given date range
-        
+
         Args:
             date_from: Start date in format 'YYYY-MM-DD'
             date_to: End date in format 'YYYY-MM-DD'
-            
+
         Returns:
             List of tuples: (employee_id, employee_name, project_code)
         """
@@ -29,6 +31,7 @@ class EmployeeRepository:
                 ,p.PRE_Kod                                                                   AS Kod
                 ,CASE WHEN wyp.WPL_NumerPelny not LIKE 'U%' THEN 'etat'  ELSE 'zlecenie' END AS TypZatrudnienia
                 ,wyp.WPL_NumerPelny
+                ,p.PRE_ZatrudnionyDo AS KoniecZatrudnienia
             FROM CDN.PracEtaty AS p
             INNER JOIN CDN.Wyplaty AS wyp
             ON wyp.WPL_PraId = p.PRE_PraId
@@ -47,6 +50,8 @@ class EmployeeRepository:
             ,lp.Pracownik
             ,lp.Kod
             ,dp.PRJ_Kod
+            ,lp.KoniecZatrudnienia
+            ,CASE WHEN lp.KoniecZatrudnienia BETWEEN @data_od AND @data_do THEN 1 ELSE 0 END
         FROM ListaPracownikow lp
         INNER JOIN CDN.PracPlanDni pld
         ON pld.PPL_PraId = lp.IdPracownika
@@ -59,13 +64,13 @@ class EmployeeRepository:
         AND pld.PPL_TypDnia = 1
         ORDER BY lp.IdPracownika
         """
-        
+
         try:
             return self.db.execute_query(sql_query, (date_from, date_to))
         except Exception as e:
             print(f"Error executing employee query: {e}")
             return []
-    
+
     def get_active_employees(self) -> List[Tuple]:
         """
         Get list of all active employees
@@ -88,7 +93,7 @@ class EmployeeRepository:
         AND UPPER(ele.WPE_Nazwa) not LIKE '%ZASI%'
         ORDER BY p.PRE_PraId 
         """
-        
+
         try:
             return self.db.execute_query(sql_query)
         except Exception as e:
