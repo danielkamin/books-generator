@@ -631,7 +631,7 @@ class DocumentGenerator:
             print(f"Error in document generation process: {e}")
 
     def create_folder_structure(self):
-        output_path = Path(__file__).parent.parent / "results"
+        output_path = Path(__file__) / "results"
 
         if output_path.exists() == False:
             output_path.mkdir(parents=True, exist_ok=True)
