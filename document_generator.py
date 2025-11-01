@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 from pathlib import Path
 from typing import List
 
@@ -579,6 +580,12 @@ class DocumentGenerator:
             filtered_contracts = self.final_df[
                 self.final_df["POZ KS R Umów"].notna()
                 & (self.final_df["POZ KS R Umów"].astype(str) != "")
+                & (
+                    self.final_df["Świadczenie/ zlecanie podjazdów/ podjazdy"].astype(
+                        str
+                    )
+                    != "P"
+                )
             ].copy()
 
             for dept in ["MON", "OFS"]:
@@ -631,7 +638,8 @@ class DocumentGenerator:
             print(f"Error in document generation process: {e}")
 
     def create_folder_structure(self):
-        output_path = Path(__file__) / "results"
+        base_dir = Path(os.getcwd())
+        output_path = base_dir / "results"
 
         if output_path.exists() == False:
             output_path.mkdir(parents=True, exist_ok=True)
